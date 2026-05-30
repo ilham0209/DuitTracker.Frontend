@@ -113,3 +113,19 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #0F0F1A;
+}
+
+.mud-input-slot input,
+.mud-input-slot textarea {
+    color: #E0E0E0 !important;
+    caret-color: #E0E0E0 !important;
+}
+
+.mud-input .mud-input-slot {
+    color: #E0E0E0 !important;
+}

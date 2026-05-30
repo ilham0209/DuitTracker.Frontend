@@ -1,0 +1,96 @@
+@page "/register"
+@layout AuthLayout
+@inject AuthService AuthService
+@inject CustomAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Register — DuitTracker</PageTitle>
+
+<MudText Typo="Typo.h5" Style="font-weight:700; color:#E0E0E0; margin-bottom:4px;">Create account</MudText>
+<MudText Typo="Typo.body2" Style="color:#A0A0B0; margin-bottom:32px;">Start tracking your finances today</MudText>
+
+<MudForm @ref="_form" @bind-IsValid="_isValid">
+
+    <MudTextField T="string"
+                  @bind-Value="_request.FullName"
+                  Label="Full Name"
+                  Variant="Variant.Outlined"
+                  Required="true"
+                  RequiredError="Full name is required."
+                  Style="margin-bottom:16px;" />
+
+    <MudTextField T="string"
+                  @bind-Value="_request.Email"
+                  Label="Email"
+                  InputType="InputType.Email"
+                  Variant="Variant.Outlined"
+                  Required="true"
+                  RequiredError="Email is required."
+                  Style="margin-bottom:16px;" />
+
+    <MudTextField T="string"
+                  @bind-Value="_request.Password"
+                  Label="Password"
+                  InputType="_showPassword ? InputType.Text : InputType.Password"
+                  Variant="Variant.Outlined"
+                  Required="true"
+                  RequiredError="Password is required."
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                  OnAdornmentClick="() => _showPassword = !_showPassword"
+                  Style="margin-bottom:24px;" />
+
+    <MudButton FullWidth="true"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               Size="Size.Large"
+               OnClick="HandleRegisterAsync"
+               Disabled="_loading"
+               Style="border-radius:10px; font-weight:600; height:48px; margin-bottom:20px;">
+        @if (_loading)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="margin-right:8px;" />
+        }
+        Create Account
+    </MudButton>
+
+</MudForm>
+
+<MudText Typo="Typo.body2" Align="Align.Center" Style="color:#A0A0B0;">
+    Already have an account?
+    <MudLink Href="/login" Style="color:#4CAF50; font-weight:600;">Sign in</MudLink>
+</MudText>
+
+@code {
+    private MudForm _form = null!;
+    private RegisterRequest _request = new();
+    private bool _isValid;
+    private bool _loading;
+    private bool _showPassword;
+
+    private async Task HandleRegisterAsync()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        _loading = true;
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(_request);
+            if (response is null) return;
+
+            await AuthStateProvider.NotifyUserLoginAsync(response.Token);
+            Navigation.NavigateTo("/dashboard");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

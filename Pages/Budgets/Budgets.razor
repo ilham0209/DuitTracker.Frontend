@@ -1,0 +1,154 @@
+@page "/budgets"
+@inject BudgetService BudgetService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Budgets — DuitTracker</PageTitle>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+        <MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Budgets</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Set and track your monthly spending limits</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialogAsync"
+               Style="border-radius:10px; font-weight:600;">
+        Add Budget
+    </MudButton>
+</div>
+
+@if (_loading)
+{
+    <div style="display:flex; justify-content:center; padding:80px 0;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else if (_budgets?.Count == 0)
+{
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:12px;">
+        <MudIcon Icon="@Icons.Material.Filled.TrackChanges" Style="font-size:56px; color:var(--mud-palette-text-secondary);" />
+        <MudText Typo="Typo.body1" Style="color:var(--mud-palette-text-secondary);">No budgets set</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreateDialogAsync">Add your first budget</MudButton>
+    </div>
+}
+else
+{
+    <div style="background:var(--mud-palette-surface); border-radius:12px; border:1px solid var(--mud-palette-divider);">
+        <MudTable Items="_budgets" Hover="true" Elevation="0" Dense="false">
+            <HeaderContent>
+                <MudTh>Category</MudTh>
+                <MudTh>Period</MudTh>
+                <MudTh>Budget</MudTh>
+                <MudTh>Spent</MudTh>
+                <MudTh>Progress</MudTh>
+                <MudTh Style="text-align:right;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span>@context.CategoryIcon</span>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@context.CategoryName</MudText>
+                    </div>
+                </MudTd>
+                <MudTd>@GetMonthName(context.Month) @context.Year</MudTd>
+                <MudTd>RM @context.Amount.ToString("N2")</MudTd>
+                <MudTd>RM @context.TotalSpent.ToString("N2")</MudTd>
+                <MudTd Style="min-width:150px;">
+                    <MudProgressLinear Value="@(Math.Min(context.PercentageUsed, 100))"
+                                       Color="@GetBudgetColor(context.PercentageUsed)"
+                                       Rounded="true"
+                                       Size="Size.Small" />
+                    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                        @context.PercentageUsed.ToString("0")%
+                    </MudText>
+                </MudTd>
+                <MudTd Style="text-align:right;">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="() => OpenEditDialogAsync(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="() => DeleteAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
+}
+
+@code {
+    private List<BudgetResponse>? _budgets;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _budgets = await BudgetService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateBudgetDialog>("Add Budget");
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenEditDialogAsync(BudgetResponse budget)
+    {
+        var parameters = new DialogParameters { ["Budget"] = budget };
+        var dialog = await DialogService.ShowAsync<EditBudgetDialog>("Edit Budget", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task DeleteAsync(BudgetResponse budget)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"] = "Are you sure you want to delete this budget?"
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Budget", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await BudgetService.DeleteAsync(budget.Id);
+            Snackbar.Add("Budget deleted.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static string GetMonthName(int month)
+        => new DateTime(2000, month, 1).ToString("MMMM");
+
+    private static Color GetBudgetColor(double percentage) => percentage switch
+    {
+        >= 90 => Color.Error,
+        >= 70 => Color.Warning,
+        _ => Color.Success
+    };
+}

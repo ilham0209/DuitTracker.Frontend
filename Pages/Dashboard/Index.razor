@@ -1,0 +1,252 @@
+@page "/dashboard"
+@inject DashboardService DashboardService
+@inject BudgetService BudgetService
+@inject TransactionService TransactionService
+@inject ISnackbar Snackbar
+
+<PageTitle>Dashboard — DuitTracker</PageTitle>
+
+<MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Dashboard</MudText>
+<MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:24px;">
+    Welcome back, @_fullName
+</MudText>
+
+@if (_loading)
+{
+    <div style="display:flex; justify-content:center; padding:80px 0;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else
+{
+    <MudGrid Spacing="3">
+
+        <MudItem xs="12" sm="4">
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:8px;">Total Income</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700; color:#4CAF50;">@FormatCurrency(_summary?.TotalIncome ?? 0)</MudText>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:8px;">Total Expense</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700; color:#EF5350;">@FormatCurrency(_summary?.TotalExpense ?? 0)</MudText>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" sm="4">
+            @{
+                var balanceColor = (_summary?.CurrentBalance ?? 0) >= 0 ? "#4CAF50" : "#EF5350";
+                var balanceStyle = $"font-weight:700; color:{balanceColor};";
+            }
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:8px;">Current Balance</MudText>
+                <MudText Typo="Typo.h5" Style="@balanceStyle">@FormatCurrency(_summary?.CurrentBalance ?? 0)</MudText>
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" md="8">
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600; margin-bottom:16px;">Income vs Expense</MudText>
+                @if (_chartLabels.Length > 0)
+                {
+                    <MudChart ChartType="ChartType.Bar"
+                              ChartSeries="_chartSeries"
+                              XAxisLabels="_chartLabels"
+                              Width="100%"
+                              Height="280px"
+                              ChartOptions="_chartOptions" />
+                }
+                else
+                {
+                    <div style="display:flex; align-items:center; justify-content:center; height:280px;">
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">No data available</MudText>
+                    </div>
+                }
+            </div>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider); height:100%;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600; margin-bottom:16px;">Budget Progress</MudText>
+                @if (_budgets?.Count > 0)
+                {
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        @foreach (var budget in _budgets.Take(5))
+                        {
+                            <div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                        @budget.CategoryIcon @budget.CategoryName
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                                        @FormatCurrency(budget.TotalSpent) / @FormatCurrency(budget.Amount)
+                                    </MudText>
+                                </div>
+                                <MudProgressLinear Value="@(Math.Min(budget.PercentageUsed, 100))"
+                                                  Color="@GetBudgetColor(budget.PercentageUsed)"
+                                                  Rounded="true"
+                                                  Size="Size.Small" />
+                                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                                    @budget.PercentageUsed.ToString("0")% used
+                                </MudText>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="display:flex; align-items:center; justify-content:center; height:200px;">
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">No budgets set</MudText>
+                    </div>
+                }
+            </div>
+        </MudItem>
+
+        <MudItem xs="12">
+            <div style="background:var(--mud-palette-surface); border-radius:12px; padding:20px; border:1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600; margin-bottom:16px;">Recent Transactions</MudText>
+                @if (_recentTransactions?.Count > 0)
+                {
+                    <MudTable Items="_recentTransactions" Hover="true" Elevation="0" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Date</MudTh>
+                            <MudTh>Category</MudTh>
+                            <MudTh>Note</MudTh>
+                            <MudTh>Payment Method</MudTh>
+                            <MudTh Style="text-align:right;">Amount</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.TransactionDate.ToLocalTime().ToString("dd MMM yyyy")</MudTd>
+                            <MudTd>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span>@context.CategoryIcon</span>
+                                    <MudText Typo="Typo.body2">@context.CategoryName</MudText>
+                                </div>
+                            </MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">
+                                    @(string.IsNullOrWhiteSpace(context.Note) ? "—" : context.Note)
+                                </MudText>
+                            </MudTd>
+                            <MudTd>@context.PaymentMethodName</MudTd>
+                            <MudTd Style="text-align:right;">
+                                @{
+                                    var amountColor = context.CategoryType == "Income" ? "#4CAF50" : "#EF5350";
+                                    var amountPrefix = context.CategoryType == "Income" ? "+" : "-";
+                                    var amountStyle = $"font-weight:600; color:{amountColor};";
+                                }
+                                <MudText Typo="Typo.body2" Style="@amountStyle">
+                                    @amountPrefix@FormatCurrency(context.Amount)
+                                </MudText>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else
+                {
+                    <div style="display:flex; align-items:center; justify-content:center; padding:40px 0;">
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">No transactions yet</MudText>
+                    </div>
+                }
+            </div>
+        </MudItem>
+
+    </MudGrid>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private DashboardResponse? _summary;
+    private List<BudgetResponse>? _budgets;
+    private List<TransactionResponse>? _recentTransactions;
+    private bool _loading = true;
+    private string _fullName = string.Empty;
+
+    private string[] _chartLabels = Array.Empty<string>();
+    private List<ChartSeries> _chartSeries = new();
+    private ChartOptions _chartOptions = new()
+    {
+        YAxisTicks = 5,
+        LineStrokeWidth = 2
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState;
+        _fullName = authState.User.FindFirst("FullName")?.Value
+                    ?? authState.User.FindFirst("name")?.Value
+                    ?? "there";
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var summaryTask = DashboardService.GetSummaryAsync();
+            var budgetsTask = BudgetService.GetAllAsync();
+            var transactionsTask = TransactionService.GetAllAsync();
+
+            await Task.WhenAll(summaryTask, budgetsTask, transactionsTask);
+
+            _summary = summaryTask.Result;
+            _budgets = budgetsTask.Result;
+            _recentTransactions = transactionsTask.Result?
+                .OrderByDescending(t => t.TransactionDate)
+                .Take(10)
+                .ToList();
+
+            BuildChart();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildChart()
+    {
+        if (_summary?.MonthlySummary is null || _summary.MonthlySummary.Count == 0)
+            return;
+
+        var months = _summary.MonthlySummary
+            .OrderBy(m => m.Year).ThenBy(m => m.Month)
+            .ToList();
+
+        _chartLabels = months.Select(m => new DateTime(m.Year, m.Month, 1).ToString("MMM")).ToArray();
+
+        _chartSeries = new List<ChartSeries>
+        {
+            new ChartSeries
+            {
+                Name = "Income",
+                Data = months.Select(m => (double)m.TotalIncome).ToArray()
+            },
+            new ChartSeries
+            {
+                Name = "Expense",
+                Data = months.Select(m => (double)m.TotalExpense).ToArray()
+            }
+        };
+    }
+
+    private static string FormatCurrency(decimal amount)
+        => $"RM {amount:N2}";
+
+    private static Color GetBudgetColor(double percentage) => percentage switch
+    {
+        >= 90 => Color.Error,
+        >= 70 => Color.Warning,
+        _ => Color.Success
+    };
+}

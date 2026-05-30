@@ -1,0 +1,66 @@
+@inject PaymentMethodService PaymentMethodService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight:600;">Add Payment Method</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudTextField T="string"
+                          @bind-Value="_request.Name"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Name is required."
+                          Placeholder="e.g. Cash, Maybank, Touch n Go"
+                          Style="margin-bottom:16px;" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_loading">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="margin-right:8px;" />
+            }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private CreatePaymentMethodRequest _request = new();
+    private bool _isValid;
+    private bool _loading;
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        _loading = true;
+        try
+        {
+            await PaymentMethodService.CreateAsync(_request);
+            Snackbar.Add("Payment method created.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

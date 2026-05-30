@@ -1,0 +1,127 @@
+@inject TransactionService TransactionService
+@inject CategoryService CategoryService
+@inject PaymentMethodService PaymentMethodService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight:600;">Add Transaction</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+
+            <MudSelect T="Guid"
+                       @bind-Value="_request.CategoryId"
+                       Label="Category"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Category is required."
+                       Style="margin-bottom:16px;">
+                @foreach (var cat in _categories)
+                {
+                    <MudSelectItem Value="@cat.Id">@cat.Icon @cat.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="Guid"
+                       @bind-Value="_request.PaymentMethodId"
+                       Label="Payment Method"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Payment method is required."
+                       Style="margin-bottom:16px;">
+                @foreach (var pm in _paymentMethods)
+                {
+                    <MudSelectItem Value="@pm.Id">@pm.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal"
+                             @bind-Value="_request.Amount"
+                             Label="Amount"
+                             Variant="Variant.Outlined"
+                             Required="true"
+                             RequiredError="Amount is required."
+                             Min="0.01m"
+                             Format="N2"
+                             Style="margin-bottom:16px;" />
+
+            <MudDatePicker @bind-Date="_transactionDate"
+                           Label="Transaction Date"
+                           Variant="Variant.Outlined"
+                           Style="margin-bottom:16px;" />
+
+            <MudTextField T="string"
+                          @bind-Value="_request.Note"
+                          Label="Note"
+                          Variant="Variant.Outlined"
+                          Style="margin-bottom:16px;" />
+
+            <MudTextField T="string"
+                          @bind-Value="_request.ReferenceNo"
+                          Label="Reference No (optional)"
+                          Variant="Variant.Outlined"
+                          Style="margin-bottom:16px;" />
+
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_loading">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="margin-right:8px;" />
+            }
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private CreateTransactionRequest _request = new();
+    private List<CategoryResponse> _categories = new();
+    private List<PaymentMethodResponse> _paymentMethods = new();
+    private DateTime? _transactionDate = DateTime.Today;
+    private bool _isValid;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync() ?? new();
+        _paymentMethods = await PaymentMethodService.GetAllAsync() ?? new();
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        _request.TransactionDate = _transactionDate.HasValue
+            ? DateTime.SpecifyKind(_transactionDate.Value, DateTimeKind.Utc)
+            : DateTime.UtcNow;
+
+        _loading = true;
+        try
+        {
+            await TransactionService.CreateAsync(_request);
+            Snackbar.Add("Transaction created.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

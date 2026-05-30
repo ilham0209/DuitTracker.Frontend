@@ -1,0 +1,154 @@
+@page "/transactions"
+@inject TransactionService TransactionService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Transactions — DuitTracker</PageTitle>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+        <MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Transactions</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Track all your income and expenses</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialogAsync"
+               Style="border-radius:10px; font-weight:600;">
+        Add Transaction
+    </MudButton>
+</div>
+
+@if (_loading)
+{
+    <div style="display:flex; justify-content:center; padding:80px 0;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else if (_transactions?.Count == 0)
+{
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:12px;">
+        <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Style="font-size:56px; color:var(--mud-palette-text-secondary);" />
+        <MudText Typo="Typo.body1" Style="color:var(--mud-palette-text-secondary);">No transactions yet</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreateDialogAsync">Add your first transaction</MudButton>
+    </div>
+}
+else
+{
+    <div style="background:var(--mud-palette-surface); border-radius:12px; border:1px solid var(--mud-palette-divider);">
+        <MudTable Items="_transactions" Hover="true" Elevation="0" Dense="false">
+            <HeaderContent>
+                <MudTh>Date</MudTh>
+                <MudTh>Category</MudTh>
+                <MudTh>Note</MudTh>
+                <MudTh>Payment Method</MudTh>
+                <MudTh Style="text-align:right;">Amount</MudTh>
+                <MudTh Style="text-align:right;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.TransactionDate.ToLocalTime().ToString("dd MMM yyyy")</MudTd>
+                <MudTd>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span>@context.CategoryIcon</span>
+                        <MudText Typo="Typo.body2">@context.CategoryName</MudText>
+                    </div>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">
+                        @(string.IsNullOrWhiteSpace(context.Note) ? "—" : context.Note)
+                    </MudText>
+                </MudTd>
+                <MudTd>@context.PaymentMethodName</MudTd>
+                <MudTd Style="text-align:right;">
+                    @{
+                        var amountColor = context.CategoryType == "Income" ? "#4CAF50" : "#EF5350";
+                        var amountPrefix = context.CategoryType == "Income" ? "+" : "-";
+                        var amountStyle = $"font-weight:600; color:{amountColor};";
+                    }
+                    <MudText Typo="Typo.body2" Style="@amountStyle">
+                        @amountPrefix@FormatCurrency(context.Amount)
+                    </MudText>
+                </MudTd>
+                <MudTd Style="text-align:right;">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="() => OpenEditDialogAsync(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="() => DeleteAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
+}
+
+@code {
+    private List<TransactionResponse>? _transactions;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _transactions = (await TransactionService.GetAllAsync())?
+                .OrderByDescending(t => t.TransactionDate)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateTransactionDialog>("Add Transaction");
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenEditDialogAsync(TransactionResponse transaction)
+    {
+        var parameters = new DialogParameters { ["Transaction"] = transaction };
+        var dialog = await DialogService.ShowAsync<EditTransactionDialog>("Edit Transaction", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task DeleteAsync(TransactionResponse transaction)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"] = "Are you sure you want to delete this transaction?"
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Transaction", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await TransactionService.DeleteAsync(transaction.Id);
+            Snackbar.Add("Transaction deleted.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static string FormatCurrency(decimal amount)
+        => $"RM {amount:N2}";
+}
