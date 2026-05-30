@@ -1,0 +1,85 @@
+@page "/profile"
+@inject LocalStorageService LocalStorage
+@inject AuthService AuthService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Profile — DuitTracker</PageTitle>
+
+<MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Profile</MudText>
+<MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:24px;">Your account information</MudText>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="6">
+        <div style="background:var(--mud-palette-surface); border-radius:12px; padding:24px; border:1px solid var(--mud-palette-divider);">
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">
+                <MudAvatar Style="width:64px; height:64px; background:#4CAF50; font-size:24px; font-weight:700;">
+                    @GetInitials(_fullName)
+                </MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h6" Style="font-weight:600;">@_fullName</MudText>
+                    <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">@_email</MudText>
+                </div>
+            </div>
+
+            <MudDivider Style="margin-bottom:20px;" />
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">Full Name</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">@_fullName</MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">Email</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">@_email</MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">Role</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">@_role</MudText>
+                </div>
+            </div>
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <div style="background:var(--mud-palette-surface); border-radius:12px; padding:24px; border:1px solid var(--mud-palette-divider);">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600; margin-bottom:16px;">Security</MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Lock"
+                       OnClick="OpenChangePasswordAsync"
+                       Style="border-radius:10px; justify-content:flex-start;">
+                Change Password
+            </MudButton>
+        </div>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _fullName = string.Empty;
+    private string _email = string.Empty;
+    private string _role = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _fullName = await LocalStorage.GetAsync(LocalStorageKeys.UserFullName) ?? string.Empty;
+        _email = await LocalStorage.GetAsync(LocalStorageKeys.UserEmail) ?? string.Empty;
+        _role = await LocalStorage.GetAsync(LocalStorageKeys.UserRole) ?? string.Empty;
+    }
+
+    private async Task OpenChangePasswordAsync()
+    {
+        var dialog = await DialogService.ShowAsync<ChangePasswordDialog>("Change Password");
+        await dialog.Result;
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[^1][0]}".ToUpper()
+            : name[0].ToString().ToUpper();
+    }
+}

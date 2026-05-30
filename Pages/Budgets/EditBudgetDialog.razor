@@ -1,0 +1,127 @@
+@inject BudgetService BudgetService
+@inject CategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight:600;">Edit Budget</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+
+            <MudSelect T="Guid"
+                       @bind-Value="_request.CategoryId"
+                       Label="Category"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Category is required."
+                       Style="margin-bottom:16px;">
+                @foreach (var cat in _categories)
+                {
+                    <MudSelectItem Value="@cat.Id">@cat.Icon @cat.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal"
+                             @bind-Value="_request.Amount"
+                             Label="Budget Amount"
+                             Variant="Variant.Outlined"
+                             Required="true"
+                             RequiredError="Amount is required."
+                             Min="0.01m"
+                             Format="N2"
+                             Style="margin-bottom:16px;" />
+
+            <MudSelect T="int"
+                       @bind-Value="_request.Month"
+                       Label="Month"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       Style="margin-bottom:16px;">
+                <MudSelectItem Value="@(1)">January</MudSelectItem>
+                <MudSelectItem Value="@(2)">February</MudSelectItem>
+                <MudSelectItem Value="@(3)">March</MudSelectItem>
+                <MudSelectItem Value="@(4)">April</MudSelectItem>
+                <MudSelectItem Value="@(5)">May</MudSelectItem>
+                <MudSelectItem Value="@(6)">June</MudSelectItem>
+                <MudSelectItem Value="@(7)">July</MudSelectItem>
+                <MudSelectItem Value="@(8)">August</MudSelectItem>
+                <MudSelectItem Value="@(9)">September</MudSelectItem>
+                <MudSelectItem Value="@(10)">October</MudSelectItem>
+                <MudSelectItem Value="@(11)">November</MudSelectItem>
+                <MudSelectItem Value="@(12)">December</MudSelectItem>
+            </MudSelect>
+
+            <MudNumericField T="int"
+                             @bind-Value="_request.Year"
+                             Label="Year"
+                             Variant="Variant.Outlined"
+                             Required="true"
+                             Min="2000"
+                             Max="2100"
+                             Style="margin-bottom:16px;" />
+
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_loading">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="margin-right:8px;" />
+            }
+            Update
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public BudgetResponse Budget { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private EditBudgetRequest _request = new();
+    private List<CategoryResponse> _categories = new();
+    private bool _isValid;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryService.GetAllAsync() ?? new();
+
+        _request = new EditBudgetRequest
+        {
+            CategoryId = Budget.CategoryId,
+            Amount = Budget.Amount,
+            Month = Budget.Month,
+            Year = Budget.Year
+        };
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        _loading = true;
+        try
+        {
+            await BudgetService.EditAsync(Budget.Id, _request);
+            Snackbar.Add("Budget updated.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

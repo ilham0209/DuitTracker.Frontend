@@ -1,0 +1,43 @@
+@page "/settings"
+@inject LocalStorageService LocalStorage
+@inject ISnackbar Snackbar
+
+<PageTitle>Settings — DuitTracker</PageTitle>
+
+<MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Settings</MudText>
+<MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary); margin-bottom:24px;">Manage your app preferences</MudText>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="6">
+        <div style="background:var(--mud-palette-surface); border-radius:12px; padding:24px; border:1px solid var(--mud-palette-divider);">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600; margin-bottom:16px;">Appearance</MudText>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">Dark Mode</MudText>
+                    <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Switch between light and dark theme</MudText>
+                </div>
+                <MudSwitch T="bool"
+                           Value="_darkMode"
+                           ValueChanged="ToggleDarkModeAsync"
+                           Color="Color.Primary" />
+            </div>
+        </div>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private bool _darkMode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var stored = await LocalStorage.GetAsync(LocalStorageKeys.DarkMode);
+        _darkMode = stored == "true";
+    }
+
+    private async Task ToggleDarkModeAsync(bool value)
+    {
+        _darkMode = value;
+        await LocalStorage.SetAsync(LocalStorageKeys.DarkMode, value.ToString().ToLower());
+        Snackbar.Add("Theme preference saved. Refresh to apply.", Severity.Info);
+    }
+}

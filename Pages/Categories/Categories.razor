@@ -1,0 +1,144 @@
+@page "/categories"
+@inject CategoryService CategoryService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Categories — DuitTracker</PageTitle>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+    <div>
+        <MudText Typo="Typo.h5" Style="font-weight:700; margin-bottom:4px;">Categories</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">Manage your income and expense categories</MudText>
+    </div>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialogAsync"
+               Style="border-radius:10px; font-weight:600;">
+        Add Category
+    </MudButton>
+</div>
+
+@if (_loading)
+{
+    <div style="display:flex; justify-content:center; padding:80px 0;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else if (_categories?.Count == 0)
+{
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:12px;">
+        <MudIcon Icon="@Icons.Material.Filled.Category" Style="font-size:56px; color:var(--mud-palette-text-secondary);" />
+        <MudText Typo="Typo.body1" Style="color:var(--mud-palette-text-secondary);">No categories yet</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenCreateDialogAsync">Add your first category</MudButton>
+    </div>
+}
+else
+{
+    <div style="background:var(--mud-palette-surface); border-radius:12px; border:1px solid var(--mud-palette-divider);">
+        <MudTable Items="_categories" Hover="true" Elevation="0" Dense="false">
+            <HeaderContent>
+                <MudTh>Category</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Color</MudTh>
+                <MudTh Style="text-align:right;">Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:24px;">@context.Icon</span>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@context.Name</MudText>
+                    </div>
+                </MudTd>
+                <MudTd>
+                    @{
+                        var typeColor = context.Type == "Income" ? "#4CAF50" : "#EF5350";
+                        var typeBg = context.Type == "Income" ? "rgba(76,175,80,0.1)" : "rgba(239,83,80,0.1)";
+                        var typeStyle = $"display:inline-block; padding:2px 12px; border-radius:20px; font-size:12px; font-weight:600; color:{typeColor}; background:{typeBg};";
+                    }
+                    <span style="@typeStyle">@context.Type</span>
+                </MudTd>
+                <MudTd>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="@($"width:20px; height:20px; border-radius:50%; background:{context.Color};")"></div>
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">@context.Color</MudText>
+                    </div>
+                </MudTd>
+                <MudTd Style="text-align:right;">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                   Size="Size.Small"
+                                   Color="Color.Primary"
+                                   OnClick="() => OpenEditDialogAsync(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="() => DeleteAsync(context)" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
+}
+
+@code {
+    private List<CategoryResponse>? _categories;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+        => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _categories = await CategoryService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OpenCreateDialogAsync()
+    {
+        var dialog = await DialogService.ShowAsync<CreateCategoryDialog>("Add Category");
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task OpenEditDialogAsync(CategoryResponse category)
+    {
+        var parameters = new DialogParameters { ["Category"] = category };
+        var dialog = await DialogService.ShowAsync<EditCategoryDialog>("Edit Category", parameters);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+            await LoadAsync();
+    }
+
+    private async Task DeleteAsync(CategoryResponse category)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Message"] = $"Are you sure you want to delete \"{category.Name}\"?"
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Category", parameters);
+        var result = await dialog.Result;
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await CategoryService.DeleteAsync(category.Id);
+            Snackbar.Add("Category deleted.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

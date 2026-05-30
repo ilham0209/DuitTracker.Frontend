@@ -1,0 +1,99 @@
+@inject CategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight:600;">Edit Category</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
+            <MudTextField T="string"
+                          @bind-Value="_request.Name"
+                          Label="Name"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          RequiredError="Name is required."
+                          Style="margin-bottom:16px;" />
+
+            <MudTextField T="string"
+                          @bind-Value="_request.Icon"
+                          Label="Icon (emoji)"
+                          Variant="Variant.Outlined"
+                          Style="margin-bottom:16px;" />
+
+            <MudTextField T="string"
+                          @bind-Value="_request.Color"
+                          Label="Color (hex)"
+                          Variant="Variant.Outlined"
+                          Style="margin-bottom:16px;" />
+
+            <MudSelect T="string"
+                       @bind-Value="_request.Type"
+                       Label="Type"
+                       Variant="Variant.Outlined"
+                       Required="true"
+                       RequiredError="Type is required.">
+                <MudSelectItem Value="@("Income")">Income</MudSelectItem>
+                <MudSelectItem Value="@("Expense")">Expense</MudSelectItem>
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancel</MudButton>
+        <MudButton OnClick="SubmitAsync"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="_loading">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Style="margin-right:8px;" />
+            }
+            Update
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public CategoryResponse Category { get; set; } = null!;
+
+    private MudForm _form = null!;
+    private EditCategoryRequest _request = new();
+    private bool _isValid;
+    private bool _loading;
+
+    protected override void OnInitialized()
+    {
+        _request = new EditCategoryRequest
+        {
+            Name = Category.Name,
+            Icon = Category.Icon,
+            Color = Category.Color,
+            Type = Category.Type
+        };
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_isValid) return;
+
+        _loading = true;
+        try
+        {
+            await CategoryService.EditAsync(Category.Id, _request);
+            Snackbar.Add("Category updated.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

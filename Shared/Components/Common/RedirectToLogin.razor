@@ -1,0 +1,10 @@
+@inject NavigationManager Navigation
+
+@namespace DuitTracker.Frontend.Layout
+
+@code {
+    protected override void OnInitialized()
+    {
+        Navigation.NavigateTo("/login", forceLoad: false);
+    }
+}
