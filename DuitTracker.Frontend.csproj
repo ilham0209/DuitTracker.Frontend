@@ -5,7 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
-     <RootNamespace>DuitTracker.Frontend</RootNamespace>
+    <RootNamespace>DuitTracker.Frontend</RootNamespace>
+    <FingerprintAssets>false</FingerprintAssets>
   </PropertyGroup>
 
   <ItemGroup>
