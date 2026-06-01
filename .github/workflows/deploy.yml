@@ -19,7 +19,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish
-        run: dotnet publish -c Release -o publish
+        run: dotnet publish -c Release -o publish -p:FingerprintAssets=false
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
