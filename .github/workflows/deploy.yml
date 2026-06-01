@@ -19,7 +19,50 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish
-        run: dotnet publish -c Release -o publish -p:FingerprintAssets=false
+        run: dotnet publish -c Release -o publish
+
+      - name: Fix Blazor fingerprinted filenames
+        run: |
+          WWWROOT="publish/wwwroot"
+          FRAMEWORK="$WWWROOT/_framework"
+
+          # Find actual fingerprinted filenames
+          BLAZOR_JS=$(ls $FRAMEWORK/blazor.webassembly.*.js | grep -v '\.br$' | grep -v '\.gz$' | head -1 | xargs basename)
+          DOTNET_JS=$(ls $FRAMEWORK/dotnet.*.js | grep -v 'native' | grep -v 'runtime' | grep -v '\.br$' | grep -v '\.gz$' | head -1 | xargs basename)
+          DOTNET_NATIVE_JS=$(ls $FRAMEWORK/dotnet.native.*.js | grep -v '\.br$' | grep -v '\.gz$' | head -1 | xargs basename)
+          DOTNET_RUNTIME_JS=$(ls $FRAMEWORK/dotnet.runtime.*.js | grep -v '\.br$' | grep -v '\.gz$' | head -1 | xargs basename)
+
+          echo "Found: $BLAZOR_JS"
+          echo "Found: $DOTNET_JS"
+          echo "Found: $DOTNET_NATIVE_JS"
+          echo "Found: $DOTNET_RUNTIME_JS"
+
+          # Fix index.html to reference the fingerprinted blazor file
+          sed -i "s|_framework/blazor.webassembly.js|_framework/$BLAZOR_JS|g" $WWWROOT/index.html
+
+          # Create type=module script tags workaround for dotnet files
+          cp $FRAMEWORK/$DOTNET_JS $FRAMEWORK/dotnet.js
+          cp $FRAMEWORK/$DOTNET_NATIVE_JS $FRAMEWORK/dotnet.native.js
+          cp $FRAMEWORK/$DOTNET_RUNTIME_JS $FRAMEWORK/dotnet.runtime.js
+
+          # Add _routes.json for SPA routing
+          cat > $WWWROOT/_routes.json << 'ROUTES'
+          {
+            "version": 1,
+            "include": ["/*"],
+            "exclude": [
+              "/_framework/*",
+              "/_content/*",
+              "/css/*",
+              "/lib/*",
+              "/*.png",
+              "/*.ico",
+              "/*.json",
+              "/*.js",
+              "/*.css"
+            ]
+          }
+          ROUTES
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
